@@ -239,6 +239,6 @@ class SFBulkType(object):
 
     def query_all(self, data):
             """ bulk queryAll """
-            results = self._bulk_operation(object_name=self.object_name,
+        results = self._bulk_operation(object_name=self.object_name,
                                         operation='queryAll', data=data)
         return results
