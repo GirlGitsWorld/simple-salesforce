@@ -42,14 +42,19 @@ class SFBulkHandler(object):
         # Define these headers separate from Salesforce class,
         # as bulk uses a slightly different format
         self.headers = {
-            'Content-Type': 'application/json',
-            'X-SFDC-Session': self.session_id,
-            'X-PrettyPrint': '1'
+            "Content-Type": "application/json",
+            "X-SFDC-Session": self.session_id,
+            "X-PrettyPrint": "1",
         }
 
     def __getattr__(self, name):
-        return SFBulkType(object_name=name, bulk_url=self.bulk_url,
-                          headers=self.headers, session=self.session)
+        return SFBulkType(
+            object_name=name,
+            bulk_url=self.bulk_url,
+            headers=self.headers,
+            session=self.session,
+        )
+
 
 class SFBulkType(object):
     """ Interface to Bulk/Async API functions"""
@@ -82,41 +87,44 @@ class SFBulkType(object):
         * external_id_field -- unique identifier field for upsert operations
         """
 
-        payload = {
-            'operation': operation,
-            'object': object_name,
-            'contentType': 'JSON'
-        }
+        payload = {"operation": operation, "object": object_name, "contentType": "JSON"}
 
-        if operation == 'upsert':
-            payload['externalIdFieldName'] = external_id_field
+        if operation == "upsert":
+            payload["externalIdFieldName"] = external_id_field
 
-        url = "{}{}".format(self.bulk_url, 'job')
+        url = "{}{}".format(self.bulk_url, "job")
 
-        result = call_salesforce(url=url, method='POST', session=self.session,
-                                  headers=self.headers,
-                                  data=json.dumps(payload))
+        result = call_salesforce(
+            url=url,
+            method="POST",
+            session=self.session,
+            headers=self.headers,
+            data=json.dumps(payload),
+        )
         return result.json(object_pairs_hook=OrderedDict)
 
     def _close_job(self, job_id):
         """ Close a bulk job """
-        payload = {
-            'state': 'Closed'
-        }
+        payload = {"state": "Closed"}
 
-        url = "{}{}{}".format(self.bulk_url, 'job/', job_id)
+        url = "{}{}{}".format(self.bulk_url, "job/", job_id)
 
-        result = call_salesforce(url=url, method='POST', session=self.session,
-                                  headers=self.headers,
-                                  data=json.dumps(payload))
+        result = call_salesforce(
+            url=url,
+            method="POST",
+            session=self.session,
+            headers=self.headers,
+            data=json.dumps(payload),
+        )
         return result.json(object_pairs_hook=OrderedDict)
 
     def _get_job(self, job_id):
         """ Get an existing job to check the status """
-        url = "{}{}{}".format(self.bulk_url, 'job/', job_id)
+        url = "{}{}{}".format(self.bulk_url, "job/", job_id)
 
-        result = call_salesforce(url=url, method='GET', session=self.session,
-                                  headers=self.headers)
+        result = call_salesforce(
+            url=url, method="GET", session=self.session, headers=self.headers
+        )
         return result.json(object_pairs_hook=OrderedDict)
 
     def _add_batch(self, job_id, data, operation):
@@ -125,46 +133,57 @@ class SFBulkType(object):
         implementations involving multiple batches
         """
 
-        url = "{}{}{}{}".format(self.bulk_url, 'job/', job_id, '/batch')
+        url = "{}{}{}{}".format(self.bulk_url, "job/", job_id, "/batch")
 
-        if operation not in ('query', 'queryAll'):
+        if operation not in ("query", "queryAll"):
             data = json.dumps(data)
 
-        result = call_salesforce(url=url, method='POST', session=self.session,
-                                  headers=self.headers, data=data)
+        result = call_salesforce(
+            url=url,
+            method="POST",
+            session=self.session,
+            headers=self.headers,
+            data=data,
+        )
         return result.json(object_pairs_hook=OrderedDict)
 
     def _get_batch(self, job_id, batch_id):
         """ Get an existing batch to check the status """
 
-        url = "{}{}{}{}{}".format(self.bulk_url, 'job/',
-                                  job_id, '/batch/', batch_id)
+        url = "{}{}{}{}{}".format(self.bulk_url, "job/", job_id, "/batch/", batch_id)
 
-        result = call_salesforce(url=url, method='GET', session=self.session,
-                                  headers=self.headers)
+        result = call_salesforce(
+            url=url, method="GET", session=self.session, headers=self.headers
+        )
         return result.json(object_pairs_hook=OrderedDict)
 
     def _get_batch_results(self, job_id, batch_id, operation):
         """ retrieve a set of results from a completed job """
 
-        url = "{}{}{}{}{}{}".format(self.bulk_url, 'job/', job_id, '/batch/',
-                                    batch_id, '/result')
+        url = "{}{}{}{}{}{}".format(
+            self.bulk_url, "job/", job_id, "/batch/", batch_id, "/result"
+        )
 
-        result = call_salesforce(url=url, method='GET', session=self.session,
-                                  headers=self.headers)
+        result = call_salesforce(
+            url=url, method="GET", session=self.session, headers=self.headers
+        )
 
-        if operation == 'query' or operation == 'queryAll':
-            url_query_results = "{}{}{}".format(url, '/', result.json()[0])
-            query_result = call_salesforce(url=url_query_results, method='GET',
-                                            session=self.session,
-                                            headers=self.headers)
+        if operation == "query" or operation == "queryAll":
+            url_query_results = "{}{}{}".format(url, "/", result.json()[0])
+            query_result = call_salesforce(
+                url=url_query_results,
+                method="GET",
+                session=self.session,
+                headers=self.headers,
+            )
             return query_result.json()
 
         return result.json()
 
-    #pylint: disable=R0913
-    def _bulk_operation(self, object_name, operation, data,
-                        external_id_field=None, wait=5):
+    # pylint: disable=R0913
+    def _bulk_operation(
+        self, object_name, operation, data, external_id_field=None, wait=5
+    ):
         """ String together helper functions to create a complete
         end-to-end bulk API request
 
@@ -177,68 +196,80 @@ class SFBulkType(object):
         * wait -- seconds to sleep between checking batch status
         """
 
-        job = self._create_job(object_name=object_name, operation=operation,
-                               external_id_field=external_id_field)
+        job = self._create_job(
+            object_name=object_name,
+            operation=operation,
+            external_id_field=external_id_field,
+        )
 
-        batch = self._add_batch(job_id=job['id'], data=data,
-                                operation=operation)
+        batch = self._add_batch(job_id=job["id"], data=data, operation=operation)
 
-        self._close_job(job_id=job['id'])
+        self._close_job(job_id=job["id"])
 
-        batch_status = self._get_batch(job_id=batch['jobId'],
-                                       batch_id=batch['id'])['state']
+        batch_status = self._get_batch(job_id=batch["jobId"], batch_id=batch["id"])[
+            "state"
+        ]
 
-        while batch_status not in ['Completed', 'Failed', 'Not Processed']:
+        while batch_status not in ["Completed", "Failed", "Not Processed"]:
             sleep(wait)
-            batch_status = self._get_batch(job_id=batch['jobId'],
-                                           batch_id=batch['id'])['state']
+            batch_status = self._get_batch(job_id=batch["jobId"], batch_id=batch["id"])[
+                "state"
+            ]
 
-        results = self._get_batch_results(job_id=batch['jobId'],
-                                          batch_id=batch['id'],
-                                          operation=operation)
+        results = self._get_batch_results(
+            job_id=batch["jobId"], batch_id=batch["id"], operation=operation
+        )
         return results
 
     # _bulk_operation wrappers to expose supported Salesforce bulk operations
     def delete(self, data):
         """ soft delete records """
-        results = self._bulk_operation(object_name=self.object_name,
-                                       operation='delete', data=data)
+        results = self._bulk_operation(
+            object_name=self.object_name, operation="delete", data=data
+        )
         return results
 
     def insert(self, data):
         """ insert/create records """
-        results = self._bulk_operation(object_name=self.object_name,
-                                       operation='insert', data=data)
+        results = self._bulk_operation(
+            object_name=self.object_name, operation="insert", data=data
+        )
         return results
 
     def upsert(self, data, external_id_field):
         """ upsert records based on a unique identifier """
-        results = self._bulk_operation(object_name=self.object_name,
-                                       operation='upsert',
-                                       external_id_field=external_id_field,
-                                       data=data)
+        results = self._bulk_operation(
+            object_name=self.object_name,
+            operation="upsert",
+            external_id_field=external_id_field,
+            data=data,
+        )
         return results
 
     def update(self, data):
         """ update records """
-        results = self._bulk_operation(object_name=self.object_name,
-                                       operation='update', data=data)
+        results = self._bulk_operation(
+            object_name=self.object_name, operation="update", data=data
+        )
         return results
 
     def hard_delete(self, data):
         """ hard delete records """
-        results = self._bulk_operation(object_name=self.object_name,
-                                       operation='hardDelete', data=data)
+        results = self._bulk_operation(
+            object_name=self.object_name, operation="hardDelete", data=data
+        )
         return results
 
     def query(self, data):
         """ bulk query """
-        results = self._bulk_operation(object_name=self.object_name,
-                                       operation='query', data=data)
+        results = self._bulk_operation(
+            object_name=self.object_name, operation="query", data=data
+        )
         return results
 
     def query_all(self, data):
-            """ bulk queryAll """
-        results = self._bulk_operation(object_name=self.object_name,
-                                        operation='queryAll', data=data)
+        """ bulk queryAll """
+        results = self._bulk_operation(
+            object_name=self.object_name, operation="queryAll", data=data
+        )
         return results
